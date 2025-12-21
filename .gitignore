@@ -28,7 +28,6 @@ Thumbs.db
 *.backup
 
 # 环境变量
-.env
 config.json
 configbak.json
 
@@ -96,7 +95,6 @@ MANIFEST
 venv/
 ENV/
 env/
-.env/
 
 # uv
 .uv/
