@@ -584,6 +584,15 @@ export function AdvancedChart({
         // 1. 获取K线数据
         const klineData = await fetchKlineData(symbol, interval)
         console.log('[AdvancedChart] Loaded', klineData.length, 'klines')
+        
+        // 如果没有数据，显示提示但不报错
+        if (klineData.length === 0) {
+          console.warn('[AdvancedChart] No kline data available for', symbol)
+          setError(`暂无 ${symbol} 的K线数据`)
+          setLoading(false)
+          return
+        }
+        
         candlestickSeriesRef.current.setData(klineData)
 
         // 存储 volume/quoteVolume 数据供 tooltip 使用

@@ -2467,13 +2467,24 @@ func (s *Server) handleKlines(c *gin.Context) {
 			return
 		}
 	default:
-		// Crypto exchanges via CoinAnk
+		// Crypto exchanges via CoinAnk (with Binance fallback for unsupported symbols)
 		symbol = market.Normalize(symbol)
 		klines, err = s.getKlinesFromCoinank(symbol, interval, exchange, limit)
 		if err != nil {
-			SafeInternalError(c, "Get klines from CoinAnk", err)
-			return
+			// CoinAnk failed, try Binance API directly as fallback
+			logger.Warnf("⚠️ CoinAnk failed for %s, trying Binance API directly: %v", symbol, err)
+			klines, err = s.getKlinesFromBinance(symbol, interval, limit)
+			if err != nil {
+				// Both failed, log but don't error - return empty array
+				logger.Warnf("⚠️ Both CoinAnk and Binance failed for %s: %v", symbol, err)
+				klines = []market.Kline{} // Ensure empty array, not null
+			}
 		}
+	}
+
+	// Ensure klines is not nil (important for JSON serialization)
+	if klines == nil {
+		klines = []market.Kline{}
 	}
 
 	c.JSON(http.StatusOK, klines)
@@ -2594,6 +2605,48 @@ func (s *Server) getKlinesFromCoinank(symbol, interval, exchange string, limit i
 			QuoteVolume: ck.Quantity, // USDT 成交额
 			CloseTime:   ck.EndTime,
 		}
+	}
+
+	return klines, nil
+}
+
+// getKlinesFromBinance fetches kline data directly from Binance Futures API
+// Used as fallback when CoinAnk doesn't support a symbol
+func (s *Server) getKlinesFromBinance(symbol, interval string, limit int) ([]market.Kline, error) {
+	// Calculate time range based on interval
+	now := time.Now()
+	var duration time.Duration
+	switch interval {
+	case "1m":
+		duration = time.Duration(limit) * time.Minute
+	case "3m":
+		duration = time.Duration(limit) * 3 * time.Minute
+	case "5m":
+		duration = time.Duration(limit) * 5 * time.Minute
+	case "15m":
+		duration = time.Duration(limit) * 15 * time.Minute
+	case "30m":
+		duration = time.Duration(limit) * 30 * time.Minute
+	case "1h":
+		duration = time.Duration(limit) * time.Hour
+	case "4h":
+		duration = time.Duration(limit) * 4 * time.Hour
+	case "1d":
+		duration = time.Duration(limit) * 24 * time.Hour
+	default:
+		duration = time.Duration(limit) * 5 * time.Minute // default 5m
+	}
+	start := now.Add(-duration)
+
+	// Use market.GetKlinesRange to fetch from Binance
+	klines, err := market.GetKlinesRange(symbol, interval, start, now)
+	if err != nil {
+		return nil, fmt.Errorf("binance API error: %w", err)
+	}
+
+	// Limit the result
+	if len(klines) > limit {
+		klines = klines[len(klines)-limit:]
 	}
 
 	return klines, nil

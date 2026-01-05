@@ -85,7 +85,7 @@ type HTXResponse struct {
 	Status  string          `json:"status"`
 	Ts      int64           `json:"ts"`
 	Data    json.RawMessage `json:"data"`
-	ErrCode string          `json:"err_code"`
+	ErrCode json.Number     `json:"err_code"` // Can be number or string
 	ErrMsg  string          `json:"err_msg"`
 }
 
