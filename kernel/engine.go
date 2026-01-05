@@ -1821,10 +1821,15 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 
 		tolerance := maxPositionValue * 0.01
 		if d.PositionSizeUSD > maxPositionValue+tolerance {
+			// Auto-adjust position size instead of rejecting
+			originalSize := d.PositionSizeUSD
+			d.PositionSizeUSD = maxPositionValue
 			if d.Symbol == "BTCUSDT" || d.Symbol == "ETHUSDT" {
-				return fmt.Errorf("BTC/ETH single coin position value cannot exceed %.0f USDT (%.1fx account equity), actual: %.0f", maxPositionValue, posRatio, d.PositionSizeUSD)
+				logger.Infof("⚠️  [Position Size Auto-Adjust] %s position %.0f USDT exceeds limit %.0f USDT (%.1fx equity), adjusted to %.0f USDT",
+					d.Symbol, originalSize, maxPositionValue, posRatio, d.PositionSizeUSD)
 			} else {
-				return fmt.Errorf("altcoin single coin position value cannot exceed %.0f USDT (%.1fx account equity), actual: %.0f", maxPositionValue, posRatio, d.PositionSizeUSD)
+				logger.Infof("⚠️  [Position Size Auto-Adjust] %s position %.0f USDT exceeds limit %.0f USDT (%.1fx equity), adjusted to %.0f USDT",
+					d.Symbol, originalSize, maxPositionValue, posRatio, d.PositionSizeUSD)
 			}
 		}
 		if d.StopLoss <= 0 || d.TakeProfit <= 0 {
