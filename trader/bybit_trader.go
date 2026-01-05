@@ -1044,3 +1044,17 @@ func (t *BybitTrader) parseClosedPnLResult(resultData interface{}) ([]ClosedPnLR
 
 	return records, nil
 }
+
+// GetTradingFee Get Bybit trading fee rate
+// Bybit V5 API: GET /v5/account/fee-rate
+// Note: Bybit Go SDK doesn't expose fee rate endpoint, use conservative default
+func (b *BybitTrader) GetTradingFee() (float64, error) {
+	// Bybit standard perpetual contract fees:
+	// - Regular account: maker 0.02%, taker 0.055%
+	// - VIP 1+: progressively lower
+	// Since SDK doesn't support fee rate query easily, use conservative taker rate
+	// In future, can implement direct HTTP call to /v5/account/fee-rate
+
+	logger.Debugf("Bybit trading fee: taker=0.055%% (conservative default)")
+	return 0.00055, nil // 0.055% is standard taker rate
+}

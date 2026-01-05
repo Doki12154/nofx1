@@ -123,16 +123,21 @@ type AutoTrader struct {
 	lastResetTime         time.Time
 	stopUntil             time.Time
 	isRunning             bool
-	isRunningMutex        sync.RWMutex       // Mutex to protect isRunning flag
-	startTime             time.Time          // System start time
-	callCount             int                // AI call count
-	positionFirstSeenTime map[string]int64   // Position first seen time (symbol_side -> timestamp in milliseconds)
-	stopMonitorCh         chan struct{}      // Used to stop monitoring goroutine
-	monitorWg             sync.WaitGroup     // Used to wait for monitoring goroutine to finish
-	peakPnLCache          map[string]float64 // Peak profit cache (symbol -> peak P&L percentage)
-	peakPnLCacheMutex     sync.RWMutex       // Cache read-write lock
-	lastBalanceSyncTime   time.Time          // Last balance sync time
-	userID                string             // User ID
+	isRunningMutex        sync.RWMutex     // Mutex to protect isRunning flag
+	startTime             time.Time        // System start time
+	callCount             int              // AI call count
+	positionFirstSeenTime map[string]int64 // Position first seen time (symbol_side -> timestamp in milliseconds)
+	stopMonitorCh         chan struct{}    // Used to stop monitoring goroutine
+
+	// Trading fee cache (avoid querying every time)
+	cachedTradingFee     float64
+	tradingFeeCacheTime  time.Time
+	tradingFeeCacheMutex sync.RWMutex
+	monitorWg            sync.WaitGroup     // Used to wait for monitoring goroutine to finish
+	peakPnLCache         map[string]float64 // Peak profit cache (symbol -> peak P&L percentage)
+	peakPnLCacheMutex    sync.RWMutex       // Cache read-write lock
+	lastBalanceSyncTime  time.Time          // Last balance sync time
+	userID               string             // User ID
 }
 
 // NewAutoTrader creates an automatic trader
@@ -1085,10 +1090,15 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	}
 
 	// ⚠️ Auto-adjust position size if insufficient margin
-	// Formula: totalRequired = positionSize/leverage + positionSize*0.001 + positionSize/leverage*0.01
-	//        = positionSize * (1.01/leverage + 0.001)
-	marginFactor := 1.01/float64(decision.Leverage) + 0.001
+	// Get actual trading fee from exchange (cached for 1 hour)
+	tradingFee := at.getTradingFee()
+	// Formula: totalRequired = positionSize/leverage + positionSize*fee + positionSize/leverage*0.01 (maintenance margin buffer)
+	//        = positionSize * (1.01/leverage + fee)
+	marginFactor := 1.01/float64(decision.Leverage) + tradingFee
 	maxAffordablePositionSize := availableBalance / marginFactor
+
+	logger.Debugf("  💰 Margin calculation: fee=%.4f%%, factor=%.6f, max affordable=%.2f USDT",
+		tradingFee*100, marginFactor, maxAffordablePositionSize)
 
 	actualPositionSize := decision.PositionSizeUSD
 	if actualPositionSize > maxAffordablePositionSize {
@@ -1212,10 +1222,15 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	}
 
 	// ⚠️ Auto-adjust position size if insufficient margin
-	// Formula: totalRequired = positionSize/leverage + positionSize*0.001 + positionSize/leverage*0.01
-	//        = positionSize * (1.01/leverage + 0.001)
-	marginFactor := 1.01/float64(decision.Leverage) + 0.001
+	// Get actual trading fee from exchange (cached for 1 hour)
+	tradingFee := at.getTradingFee()
+	// Formula: totalRequired = positionSize/leverage + positionSize*fee + positionSize/leverage*0.01 (maintenance margin buffer)
+	//        = positionSize * (1.01/leverage + fee)
+	marginFactor := 1.01/float64(decision.Leverage) + tradingFee
 	maxAffordablePositionSize := availableBalance / marginFactor
+
+	logger.Debugf("  💰 Margin calculation: fee=%.4f%%, factor=%.6f, max affordable=%.2f USDT",
+		tradingFee*100, marginFactor, maxAffordablePositionSize)
 
 	actualPositionSize := decision.PositionSizeUSD
 	if actualPositionSize > maxAffordablePositionSize {
@@ -2230,6 +2245,32 @@ func (at *AutoTrader) enforcePositionValueRatio(positionSizeUSD float64, equity 
 	}
 
 	return positionSizeUSD, false
+}
+
+// getTradingFee gets trading fee rate with caching (1 hour)
+func (at *AutoTrader) getTradingFee() float64 {
+	at.tradingFeeCacheMutex.RLock()
+	if time.Since(at.tradingFeeCacheTime) < 1*time.Hour && at.cachedTradingFee > 0 {
+		fee := at.cachedTradingFee
+		at.tradingFeeCacheMutex.RUnlock()
+		return fee
+	}
+	at.tradingFeeCacheMutex.RUnlock()
+
+	// Query from exchange
+	feeRate, err := at.trader.GetTradingFee()
+	if err != nil {
+		logger.Warnf("Failed to get trading fee, using default 0.05%%: %v", err)
+		feeRate = 0.0005 // Default 0.05%
+	}
+
+	// Update cache
+	at.tradingFeeCacheMutex.Lock()
+	at.cachedTradingFee = feeRate
+	at.tradingFeeCacheTime = time.Now()
+	at.tradingFeeCacheMutex.Unlock()
+
+	return feeRate
 }
 
 // enforceMinPositionSize checks minimum position size (CODE ENFORCED)

@@ -902,3 +902,11 @@ func (t *HTXTrader) isContractSupported(symbol string) (bool, error) {
 	_, exists := t.contractsCache[symbol]
 	return exists, nil
 }
+
+// GetTradingFee Get HTX trading fee rate
+// HTX standard fee: taker 0.04%
+func (t *HTXTrader) GetTradingFee() (float64, error) {
+	// HTX standard fee: maker 0.02%, taker 0.04%
+	logger.Debugf("HTX trading fee: taker=0.04%% (default)")
+	return 0.0004, nil
+}

@@ -2085,3 +2085,11 @@ func (t *HyperliquidTrader) GetTrades(startTime time.Time, limit int) ([]TradeRe
 //		Fee:     10,
 //	}
 var defaultBuilder *hyperliquid.BuilderInfo = nil
+
+// GetTradingFee Get Hyperliquid trading fee rate
+// Hyperliquid: maker -0.005% (rebate), taker 0.035%
+func (h *HyperliquidTrader) GetTradingFee() (float64, error) {
+	// Hyperliquid has maker rebate, but use taker rate for conservative estimation
+	logger.Debugf("Hyperliquid trading fee: taker=0.035%%")
+	return 0.00035, nil
+}

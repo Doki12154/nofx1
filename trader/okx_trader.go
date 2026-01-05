@@ -1304,19 +1304,19 @@ func (t *OKXTrader) GetClosedPnL(startTime time.Time, limit int) ([]ClosedPnLRec
 		Code string `json:"code"`
 		Msg  string `json:"msg"`
 		Data []struct {
-			InstID      string `json:"instId"`      // Instrument ID (e.g., "BTC-USDT-SWAP")
-			Direction   string `json:"direction"`   // Position direction: "long" or "short"
-			OpenAvgPx   string `json:"openAvgPx"`   // Average open price
-			CloseAvgPx  string `json:"closeAvgPx"`  // Average close price
+			InstID        string `json:"instId"`        // Instrument ID (e.g., "BTC-USDT-SWAP")
+			Direction     string `json:"direction"`     // Position direction: "long" or "short"
+			OpenAvgPx     string `json:"openAvgPx"`     // Average open price
+			CloseAvgPx    string `json:"closeAvgPx"`    // Average close price
 			CloseTotalPos string `json:"closeTotalPos"` // Closed position quantity
-			RealizedPnl string `json:"realizedPnl"` // Realized PnL
-			Fee         string `json:"fee"`         // Total fee
-			FundingFee  string `json:"fundingFee"`  // Funding fee
-			Lever       string `json:"lever"`       // Leverage
-			CTime       string `json:"cTime"`       // Position open time
-			UTime       string `json:"uTime"`       // Position close time
-			Type        string `json:"type"`        // Close type: 1=close position, 2=partial close, 3=liquidation, 4=partial liquidation
-			PosId       string `json:"posId"`       // Position ID
+			RealizedPnl   string `json:"realizedPnl"`   // Realized PnL
+			Fee           string `json:"fee"`           // Total fee
+			FundingFee    string `json:"fundingFee"`    // Funding fee
+			Lever         string `json:"lever"`         // Leverage
+			CTime         string `json:"cTime"`         // Position open time
+			UTime         string `json:"uTime"`         // Position close time
+			Type          string `json:"type"`          // Close type: 1=close position, 2=partial close, 3=liquidation, 4=partial liquidation
+			PosId         string `json:"posId"`         // Position ID
 		} `json:"data"`
 	}
 
@@ -1386,4 +1386,42 @@ func (t *OKXTrader) GetClosedPnL(startTime time.Time, limit int) ([]ClosedPnLRec
 	}
 
 	return records, nil
+}
+
+// GetTradingFee Get OKX trading fee rate
+// OKX API: GET /api/v5/account/trade-fee?instType=SWAP
+func (o *OKXTrader) GetTradingFee() (float64, error) {
+	type FeeResponse struct {
+		Level    string `json:"level"`
+		Taker    string `json:"taker"`    // Taker fee rate (e.g., "0.0005" = 0.05%)
+		Maker    string `json:"maker"`    // Maker fee rate
+		Category string `json:"category"` // "1" = normal, "2" = professional trader
+		InstType string `json:"instType"` // "SWAP" for perpetual
+	}
+
+	// Build request with query parameters
+	path := "/api/v5/account/trade-fee"
+	queryParams := map[string]interface{}{
+		"instType": "SWAP",
+	}
+
+	data, err := o.doRequest("GET", path, queryParams)
+	if err != nil {
+		logger.Errorf("Failed to get OKX trading fee: %v", err)
+		return 0.0005, nil // Default 0.05%
+	}
+
+	var fees []FeeResponse
+	if err := json.Unmarshal(data, &fees); err != nil || len(fees) == 0 {
+		logger.Warnf("Failed to parse OKX fee response, using default")
+		return 0.0005, nil
+	}
+
+	takerRate, err := strconv.ParseFloat(fees[0].Taker, 64)
+	if err != nil || takerRate <= 0 {
+		return 0.0005, nil
+	}
+
+	logger.Debugf("OKX trading fee: taker=%.4f%% (level=%s)", takerRate*100, fees[0].Level)
+	return takerRate, nil
 }

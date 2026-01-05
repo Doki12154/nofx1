@@ -925,3 +925,39 @@ func (t *GateTrader) isContractSupported(symbol string) (bool, error) {
 	_, exists := t.contractsCache[symbol]
 	return exists, nil
 }
+
+// GetTradingFee Get Gate.io trading fee rate
+// Gate.io API: GET /api/v4/wallet/fee
+func (t *GateTrader) GetTradingFee() (float64, error) {
+	type FeeResponse struct {
+		UserID     int64  `json:"user_id"`
+		TakerFee   string `json:"taker_fee"`    // e.g., "0.0005" = 0.05%
+		MakerFee   string `json:"maker_fee"`    // e.g., "0.00015" = 0.015%
+		GtDiscount bool   `json:"gt_discount"`  // GT token discount enabled
+		GtTakerFee string `json:"gt_taker_fee"` // Fee with GT discount
+		GtMakerFee string `json:"gt_maker_fee"`
+		LoanFee    string `json:"loan_fee"`
+		PointType  string `json:"point_type"` // "1" = USDT, "2" = GT
+	}
+
+	data, err := t.doRequest("GET", "/api/v4/wallet/fee", nil, nil)
+	if err != nil {
+		logger.Warnf("Failed to get Gate.io fee rate, using default 0.05%%: %v", err)
+		return 0.0005, nil
+	}
+
+	var fee FeeResponse
+	if err := json.Unmarshal(data, &fee); err != nil {
+		logger.Warnf("Failed to parse Gate.io fee response, using default")
+		return 0.0005, nil
+	}
+
+	// Parse taker fee
+	takerRate, err := strconv.ParseFloat(fee.TakerFee, 64)
+	if err != nil || takerRate <= 0 {
+		return 0.0005, nil
+	}
+
+	logger.Debugf("Gate.io trading fee: taker=%.4f%%", takerRate*100)
+	return takerRate, nil
+}

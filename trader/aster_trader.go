@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"nofx/logger"
 	"math"
 	"math/big"
 	"net/http"
 	"net/url"
 	"nofx/hook"
+	"nofx/logger"
 	"sort"
 	"strconv"
 	"strings"
@@ -1262,14 +1262,14 @@ func (t *AsterTrader) GetOrderStatus(symbol string, orderID string) (map[string]
 
 	// Standardize return fields
 	response := map[string]interface{}{
-		"orderId":     result["orderId"],
-		"symbol":      result["symbol"],
-		"status":      result["status"],
-		"side":        result["side"],
-		"type":        result["type"],
-		"time":        result["time"],
-		"updateTime":  result["updateTime"],
-		"commission":  0.0, // Aster may require separate query
+		"orderId":    result["orderId"],
+		"symbol":     result["symbol"],
+		"status":     result["status"],
+		"side":       result["side"],
+		"type":       result["type"],
+		"time":       result["time"],
+		"updateTime": result["updateTime"],
+		"commission": 0.0, // Aster may require separate query
 	}
 
 	// Parse numeric fields
@@ -1413,4 +1413,12 @@ func (t *AsterTrader) GetTrades(startTime time.Time, limit int) ([]TradeRecord, 
 	}
 
 	return result, nil
+}
+
+// GetTradingFee Get Aster trading fee rate
+// Aster typical fee: taker 0.05%
+func (a *AsterTrader) GetTradingFee() (float64, error) {
+	// Aster typical fee structure
+	logger.Debugf("Aster trading fee: taker=0.05%% (default)")
+	return 0.0005, nil
 }

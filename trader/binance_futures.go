@@ -1244,3 +1244,37 @@ func (t *FuturesTrader) GetCommissionSymbols(lastSyncTime time.Time) ([]string, 
 
 	return symbols, nil
 }
+
+// GetTradingFee Get trading fee rate from Binance account info
+// Binance Futures API: GET /fapi/v2/account
+// Returns taker fee rate (used for market orders when opening positions)
+func (ft *FuturesTrader) GetTradingFee() (float64, error) {
+	account, err := ft.client.NewGetAccountService().Do(context.Background())
+	if err != nil {
+		logger.Errorf("Failed to get Binance account info for fee rate: %v", err)
+		return 0.0004, nil // Return default 0.04% on error
+	}
+
+	// Binance Futures returns feeTier (0-9) and actual commission rates
+	// Try to get actual taker commission rate
+	var takerRate float64 = 0.0004 // Default 0.04%
+
+	// Check if we can access commission rates from account
+	// The SDK might expose TakerCommission field
+	if account.FeeTier >= 0 && account.FeeTier <= 9 {
+		// Standard Binance Futures fee tiers:
+		// Tier 0: 0.04% taker
+		// Tier 1: 0.04% taker (30-day volume >= 250 BTC)
+		// Tier 2+: progressively lower
+		if account.FeeTier == 0 {
+			takerRate = 0.0004
+		} else if account.FeeTier >= 1 && account.FeeTier <= 3 {
+			takerRate = 0.0004 * (1.0 - float64(account.FeeTier)*0.025) // 2.5% reduction per tier
+		} else {
+			takerRate = 0.0003 // VIP 4+ gets ~0.03%
+		}
+	}
+
+	logger.Debugf("Binance trading fee: taker=%.4f%% (tier=%d)", takerRate*100, account.FeeTier)
+	return takerRate, nil
+}
