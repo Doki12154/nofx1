@@ -410,6 +410,8 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 	symbolSources := make(map[string][]string)
 
 	coinSource := e.config.CoinSource
+	logger.Infof("🪙 GetCandidateCoins: source_type=%s, use_ai500=%v, use_oi_top=%v, static_coins=%v",
+		coinSource.SourceType, coinSource.UseAI500, coinSource.UseOITop, coinSource.StaticCoins)
 
 	switch coinSource.SourceType {
 	case "static":
@@ -420,7 +422,7 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 				Sources: []string{"static"},
 			})
 		}
-
+		logger.Infof("🪙 Using static coins: %d symbols", len(candidates))
 		return e.filterExcludedCoins(candidates), nil
 
 	case "ai500":
