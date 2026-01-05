@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"nofx/logger"
+	"nofx/provider/coinank"
 	"nofx/provider/coinank/coinank_api"
 	"nofx/provider/coinank/coinank_enum"
 	"nofx/provider/hyperliquid"
@@ -67,13 +68,24 @@ func getKlinesFromCoinAnk(symbol, interval string, limit int) ([]Kline, error) {
 		return nil, fmt.Errorf("unsupported interval: %s", interval)
 	}
 
-	// Call CoinAnk free/open API (no authentication required)
+	// Call CoinAnk free/open API (no authentication required) with retry
 	ctx := context.Background()
 	ts := time.Now().UnixMilli()
-	// Use "To" side to search backward from current time (get historical klines)
-	coinankKlines, err := coinank_api.Kline(ctx, symbol, coinank_enum.Binance, ts, coinank_enum.To, limit, coinankInterval)
+	var coinankKlines []coinank.KlineResult
+	var err error
+	// Retry up to 3 times for network issues
+	for attempt := 1; attempt <= 3; attempt++ {
+		coinankKlines, err = coinank_api.Kline(ctx, symbol, coinank_enum.Binance, ts, coinank_enum.To, limit, coinankInterval)
+		if err == nil {
+			break
+		}
+		if attempt < 3 {
+			logger.Infof("⚠️  CoinAnk API attempt %d/3 failed: %v, retrying...", attempt, err)
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
 	if err != nil {
-		return nil, fmt.Errorf("CoinAnk API error: %w", err)
+		return nil, fmt.Errorf("CoinAnk API error after 3 attempts: %w", err)
 	}
 
 	// Convert coinank kline format to market.Kline format
@@ -331,7 +343,7 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 	currentRSI7 := calculateRSI(primaryKlines, 7)
 
 	// Calculate price changes
-	priceChange1h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60) // 1 hour
+	priceChange1h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60)  // 1 hour
 	priceChange4h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 240) // 4 hours
 
 	// Get OI data

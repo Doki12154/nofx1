@@ -32,10 +32,10 @@ func Kline(ctx context.Context, symbol string, exchange coinank_enum.Exchange, t
 	var result coinank.CoinankResponse[[][]float64]
 	err = json.Unmarshal([]byte(resp), &result)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse response: %w (response: %s)", err, resp)
 	}
 	if !result.Success {
-		return nil, coinank.HttpError
+		return nil, fmt.Errorf("CoinAnk API returned success=false (code: %s)", result.Code)
 	}
 	klines := make([]coinank.KlineResult, len(result.Data))
 	for i, k := range result.Data {
@@ -60,11 +60,11 @@ func get(ctx context.Context, path string, paramsMap map[string]string) (string,
 	fullURL := fmt.Sprintf("%s%s?%s", MainApiUrl, path, data.Encode())
 	request, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	resp, err := client.Do(request)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("HTTP request failed (url: %s): %w", fullURL, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
