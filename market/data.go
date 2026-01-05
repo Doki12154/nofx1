@@ -79,13 +79,19 @@ func getKlinesFromCoinAnk(symbol, interval string, limit int) ([]Kline, error) {
 		if err == nil {
 			break
 		}
+
+		// Don't retry if it's an unsupported symbol error
+		if coinankErr, ok := err.(*coinank_api.CoinAnkError); ok && coinankErr.IsNotFound {
+			return nil, err // Return immediately for unsupported symbols
+		}
+
 		if attempt < 3 {
-			logger.Infof("⚠️  CoinAnk API attempt %d/3 failed: %v, retrying...", attempt, err)
+			logger.Infof("⚠️  CoinAnk API attempt %d/3 failed for %s %s: %v, retrying...", attempt, symbol, interval, err)
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("CoinAnk API error after 3 attempts: %w", err)
+		return nil, fmt.Errorf("CoinAnk API error for %s %s after 3 attempts: %w", symbol, interval, err)
 	}
 
 	// Convert coinank kline format to market.Kline format
@@ -305,7 +311,12 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 			// Use CoinAnk for regular crypto assets
 			klines, err = getKlinesFromCoinAnk(symbol, tf, 200)
 			if err != nil {
-				logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
+				// Check if it's an unsupported symbol error
+				if coinankErr, ok := err.(*coinank_api.CoinAnkError); ok && coinankErr.IsNotFound {
+					logger.Infof("⚠️  %s is not supported by CoinAnk (code=%s), skipping this symbol", symbol, coinankErr.Code)
+				} else {
+					logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
+				}
 				continue
 			}
 		}

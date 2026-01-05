@@ -19,7 +19,7 @@ func BaseCoinSymbols(ctx context.Context, exchangeName coinank_enum.Exchange, sy
 	if exchangeName != "" {
 		paramsMap["exchangeName"] = string(exchangeName)
 	}
-	resp, err := get(ctx, "/api/baseCoin/symbols/open", paramsMap)
+	resp, _, err := get(ctx, "/api/baseCoin/symbols/open", paramsMap)
 	if err != nil {
 		return nil, err
 	}

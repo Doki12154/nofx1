@@ -1242,8 +1242,13 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	quantityDec := decimal.NewFromFloat(quantity)
 	contractSize := quantityDec.Round(0).IntPart()
 	if contractSize < 1 {
-		return fmt.Errorf("❌ [ORDER SIZE] Quantity %.8f rounds to %d contracts (minimum 1). Position size %.2f USD is too small for price %.2f. Increase min position size to at least %.2f USD",
-			quantity, contractSize, actualPositionSize, marketData.CurrentPrice, marketData.CurrentPrice*1.5)
+		// Calculate minimum position size needed to get at least 1 contract
+		// For 1 contract, we need: quantity >= 0.5 (rounds to 1)
+		// So minPositionSize = price * 0.5
+		// Add 10% buffer to ensure rounding up: price * 0.55
+		minRequiredSize := marketData.CurrentPrice * 0.55
+		return fmt.Errorf("❌ [ORDER SIZE] Quantity %.8f rounds to %d contracts (minimum 1). Position size %.2f USD is too small for price %.2f. Increase position size to at least %.2f USD",
+			quantity, contractSize, actualPositionSize, marketData.CurrentPrice, minRequiredSize)
 	}
 	logger.Infof("  📊 Order calculation: %.2f USD / %.2f price = %.8f quantity → %d contracts",
 		actualPositionSize, marketData.CurrentPrice, quantity, contractSize)

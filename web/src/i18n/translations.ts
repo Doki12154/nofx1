@@ -1095,6 +1095,8 @@ export const translations = {
     positionHistory: {
       title: 'Position History',
       loading: 'Loading position history...',
+      refresh: 'Refresh',
+      refreshing: 'Refreshing...',
       noHistory: 'No Position History',
       noHistoryDesc: 'Closed positions will appear here after trading.',
       showingPositions: 'Showing {count} of {total} positions',
@@ -2241,6 +2243,8 @@ export const translations = {
     positionHistory: {
       title: '历史仓位',
       loading: '加载历史仓位...',
+      refresh: '刷新',
+      refreshing: '刷新中...',
       noHistory: '暂无历史仓位',
       noHistoryDesc: '平仓后的仓位记录将显示在此处',
       showingPositions: '显示 {count} / {total} 条记录',

@@ -354,26 +354,44 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
   const [sortBy, setSortBy] = useState<'time' | 'pnl' | 'pnl_pct'>('time')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        // Fetch more data than needed to support filtering, but respect pageSize for initial load
-        const data = await api.getPositionHistory(traderId, Math.max(200, pageSize * 5))
-        setPositions(data.positions || [])
-        setStats(data.stats)
-        setSymbolStats(data.symbol_stats || [])
-        setDirectionStats(data.direction_stats || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load history')
-      } finally {
-        setLoading(false)
-      }
+  // Fetch data function
+  const fetchData = async () => {
+    if (!traderId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      console.log('📊 Fetching position history for trader:', traderId)
+      // Fetch more data than needed to support filtering, but respect pageSize for initial load
+      const data = await api.getPositionHistory(traderId, Math.max(200, pageSize * 5))
+      console.log('📊 Position history received:', {
+        positions: data.positions?.length || 0,
+        stats: data.stats,
+        symbolStats: data.symbol_stats?.length || 0,
+        directionStats: data.direction_stats?.length || 0,
+      })
+      setPositions(data.positions || [])
+      setStats(data.stats)
+      setSymbolStats(data.symbol_stats || [])
+      setDirectionStats(data.direction_stats || [])
+    } catch (err) {
+      console.error('❌ Failed to fetch position history:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load history')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     if (traderId) {
       fetchData()
+      
+      // Auto-refresh every 10 seconds
+      const intervalId = setInterval(() => {
+        fetchData()
+      }, 10000)
+      
+      return () => clearInterval(intervalId)
     }
   }, [traderId, pageSize])
 
@@ -515,6 +533,35 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
 
   return (
     <div className="space-y-6">
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
+          style={{
+            background: loading ? 'rgba(43, 49, 57, 0.5)' : 'linear-gradient(135deg, #F0B90B 0%, #FCD535 100%)',
+            border: '1px solid ' + (loading ? '#2B3139' : 'rgba(240, 185, 11, 0.3)'),
+            color: loading ? '#848E9C' : '#1E2329',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          <svg
+            className={loading ? 'animate-spin' : ''}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M23 4v6h-6M1 20v-6h6" />
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+          </svg>
+          <span>{loading ? t('positionHistory.refreshing', language) : t('positionHistory.refresh', language)}</span>
+        </button>
+      </div>
       {/* Overall Stats - Row 1: Core Metrics */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">

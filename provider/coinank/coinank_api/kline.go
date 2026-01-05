@@ -15,6 +15,22 @@ import (
 
 const MainApiUrl = "https://api.coinank.com"
 
+// CoinAnkError custom error type with more details
+type CoinAnkError struct {
+	Symbol     string
+	Code       string
+	HTTPStatus int
+	Response   string
+	IsNotFound bool // true if symbol is not supported
+}
+
+func (e *CoinAnkError) Error() string {
+	if e.IsNotFound {
+		return fmt.Sprintf("CoinAnk: symbol %s not supported (code=%s)", e.Symbol, e.Code)
+	}
+	return fmt.Sprintf("CoinAnk API error for %s (code=%s, status=%d)", e.Symbol, e.Code, e.HTTPStatus)
+}
+
 // Kline open free kline from coinank
 func Kline(ctx context.Context, symbol string, exchange coinank_enum.Exchange, ts int64, side coinank_enum.Side, size int,
 	interval coinank_enum.Interval) ([]coinank.KlineResult, error) {
@@ -25,7 +41,7 @@ func Kline(ctx context.Context, symbol string, exchange coinank_enum.Exchange, t
 	paramsMap["size"] = strconv.Itoa(size)
 	paramsMap["ts"] = strconv.FormatInt(ts, 10)
 	paramsMap["interval"] = string(interval)
-	resp, err := get(ctx, "/api/kline/list/open", paramsMap)
+	resp, httpStatus, err := get(ctx, "/api/kline/list/open", paramsMap)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +51,18 @@ func Kline(ctx context.Context, symbol string, exchange coinank_enum.Exchange, t
 		return nil, fmt.Errorf("failed to parse response: %w (response: %s)", err, resp)
 	}
 	if !result.Success {
-		return nil, fmt.Errorf("CoinAnk API returned success=false (code: %s)", result.Code)
+		// Check if it's a "not found" error (symbol not supported)
+		// Common error codes for unsupported symbols: "0", "404", "SYMBOL_NOT_FOUND", etc.
+		isNotFound := result.Code == "0" || result.Code == "404" ||
+			result.Code == "SYMBOL_NOT_FOUND" || result.Data == nil
+
+		return nil, &CoinAnkError{
+			Symbol:     symbol,
+			Code:       result.Code,
+			HTTPStatus: httpStatus,
+			Response:   resp,
+			IsNotFound: isNotFound,
+		}
 	}
 	klines := make([]coinank.KlineResult, len(result.Data))
 	for i, k := range result.Data {
@@ -52,7 +79,7 @@ func Kline(ctx context.Context, symbol string, exchange coinank_enum.Exchange, t
 	return klines, nil
 }
 
-func get(ctx context.Context, path string, paramsMap map[string]string) (string, error) {
+func get(ctx context.Context, path string, paramsMap map[string]string) (string, int, error) {
 	data := url.Values{}
 	for key, value := range paramsMap {
 		data.Add(key, value)
@@ -60,18 +87,18 @@ func get(ctx context.Context, path string, paramsMap map[string]string) (string,
 	fullURL := fmt.Sprintf("%s%s?%s", MainApiUrl, path, data.Encode())
 	request, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 	resp, err := client.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed (url: %s): %w", fullURL, err)
+		return "", 0, fmt.Errorf("HTTP request failed (url: %s): %w", fullURL, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", resp.StatusCode, err
 	}
-	return string(body), nil
+	return string(body), resp.StatusCode, nil
 }
 
 var client = &http.Client{

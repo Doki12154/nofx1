@@ -2198,6 +2198,8 @@ func (s *Server) handlePositionHistory(c *gin.Context) {
 		return
 	}
 
+	logger.Infof("📊 Position History: trader=%s, found %d closed positions", traderID, len(positions))
+
 	// Get statistics
 	stats, _ := store.Position().GetFullStats(trader.GetID())
 
