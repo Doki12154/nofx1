@@ -1238,20 +1238,26 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	actionRecord.Price = marketData.CurrentPrice
 
 	// [CRITICAL] Check if quantity is sufficient for contract exchanges (Gate.io, HTX)
-	// These exchanges require integer contract counts (minimum 1)
-	quantityDec := decimal.NewFromFloat(quantity)
-	contractSize := quantityDec.Round(0).IntPart()
-	if contractSize < 1 {
-		// Calculate minimum position size needed to get at least 1 contract
-		// For 1 contract, we need: quantity >= 0.5 (rounds to 1)
-		// So minPositionSize = price * 0.5
-		// Add 10% buffer to ensure rounding up: price * 0.55
-		minRequiredSize := marketData.CurrentPrice * 0.55
-		return fmt.Errorf("❌ [ORDER SIZE] Quantity %.8f rounds to %d contracts (minimum 1). Position size %.2f USD is too small for price %.2f. Increase position size to at least %.2f USD",
-			quantity, contractSize, actualPositionSize, marketData.CurrentPrice, minRequiredSize)
+	// Gate.io and HTX require integer contract counts (minimum 1)
+	// Binance, OKX, Bybit support fractional contracts
+	if at.exchange == "gate" || at.exchange == "htx" {
+		quantityDec := decimal.NewFromFloat(quantity)
+		contractSize := quantityDec.Round(0).IntPart()
+		if contractSize < 1 {
+			// Calculate minimum position size needed to get at least 1 contract
+			// For 1 contract, we need: quantity >= 0.5 (rounds to 1)
+			// So minPositionSize = price * 0.5
+			// Add 10% buffer to ensure rounding up: price * 0.55
+			minRequiredSize := marketData.CurrentPrice * 0.55
+			return fmt.Errorf("❌ [ORDER SIZE] Quantity %.8f rounds to %d contracts (minimum 1 for %s). Position size %.2f USD is too small for price %.2f. Increase position size to at least %.2f USD",
+				quantity, contractSize, at.exchange, actualPositionSize, marketData.CurrentPrice, minRequiredSize)
+		}
+		logger.Infof("  📊 Order calculation: %.2f USD / %.2f price = %.8f quantity → %d contracts",
+			actualPositionSize, marketData.CurrentPrice, quantity, contractSize)
+	} else {
+		logger.Infof("  📊 Order calculation: %.2f USD / %.2f price = %.8f quantity",
+			actualPositionSize, marketData.CurrentPrice, quantity)
 	}
-	logger.Infof("  📊 Order calculation: %.2f USD / %.2f price = %.8f quantity → %d contracts",
-		actualPositionSize, marketData.CurrentPrice, quantity, contractSize)
 
 	// Try to set margin mode (may fail on some exchanges like Gate.io, will use default)
 	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
