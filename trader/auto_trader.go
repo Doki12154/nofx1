@@ -483,6 +483,20 @@ func (at *AutoTrader) Stop() {
 	logger.Info("⏹ Automatic trading system stopped")
 }
 
+// TriggerCycle manually triggers a trading cycle (useful after depositing funds)
+func (at *AutoTrader) TriggerCycle() error {
+	at.isRunningMutex.RLock()
+	running := at.isRunning
+	at.isRunningMutex.RUnlock()
+
+	if !running {
+		return fmt.Errorf("trader is not running")
+	}
+
+	logger.Infof("🔄 [%s] Manually triggering trading cycle...", at.name)
+	return at.runCycle()
+}
+
 // runCycle runs one trading cycle (using AI full decision-making)
 func (at *AutoTrader) runCycle() error {
 	at.callCount++

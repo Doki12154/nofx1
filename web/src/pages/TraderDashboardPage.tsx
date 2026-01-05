@@ -7,7 +7,8 @@ import { PositionHistory } from '../components/PositionHistory'
 import { PunkAvatar, getTraderAvatar } from '../components/PunkAvatar'
 import { confirmToast, notify } from '../lib/notify'
 import { t, type Language } from '../i18n/translations'
-import { LogOut, Loader2, Eye, EyeOff, Copy, Check } from 'lucide-react'
+import { LogOut, Loader2, Eye, EyeOff, Copy, Check, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { DeepVoidBackground } from '../components/DeepVoidBackground'
 import type {
   SystemStatus,
@@ -170,6 +171,20 @@ export function TraderDashboardPage({
       setTimeout(() => setCopiedAddress(false), 2000)
     } catch (err) {
       console.error('Failed to copy address:', err)
+    }
+  }
+
+  // Manually trigger AI analysis
+  const handleTriggerCycle = async () => {
+    if (!selectedTraderId) return
+    try {
+      await toast.promise(api.triggerCycle(selectedTraderId), {
+        loading: t('triggeringAnalysis', language),
+        success: t('analysisTriggered', language),
+        error: t('triggerAnalysisFailed', language),
+      })
+    } catch (error) {
+      console.error('Failed to trigger cycle:', error)
     }
   }
 
@@ -398,6 +413,18 @@ export function TraderDashboardPage({
                     ))}
                   </select>
                 </div>
+              )}
+
+              {/* Trigger Cycle Button */}
+              {selectedTrader?.is_running && (
+                <button
+                  onClick={handleTriggerCycle}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:scale-105 active:scale-95 nofx-glass border border-nofx-gold/30 text-nofx-gold hover:bg-nofx-gold/10"
+                  title={t('triggerAnalysisHint', language)}
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{t('triggerAnalysis', language)}</span>
+                </button>
               )}
 
               {/* Wallet Address Display for Perp-DEX */}

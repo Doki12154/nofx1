@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Zap,
 } from 'lucide-react'
 import { confirmToast } from '../lib/notify'
 import { toast } from 'sonner'
@@ -474,6 +475,18 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
     } catch (error) {
       console.error('Failed to toggle trader:', error)
       toast.error(t('operationFailed', language))
+    }
+  }
+
+  const handleTriggerCycle = async (traderId: string) => {
+    try {
+      await toast.promise(api.triggerCycle(traderId), {
+        loading: t('triggeringAnalysis', language),
+        success: t('analysisTriggered', language),
+        error: t('triggerAnalysisFailed', language),
+      })
+    } catch (error) {
+      console.error('Failed to trigger cycle:', error)
     }
   }
 
@@ -1395,6 +1408,23 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
                           ? t('stop', language)
                           : t('start', language)}
                       </button>
+
+                      {trader.is_running && (
+                        <button
+                          onClick={() => handleTriggerCycle(trader.trader_id)}
+                          className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 whitespace-nowrap flex items-center gap-1"
+                          style={{
+                            background: 'rgba(240, 185, 11, 0.1)',
+                            color: '#F0B90B',
+                          }}
+                          title={t('triggerAnalysisHint', language)}
+                        >
+                          <Zap className="w-3 h-3 md:w-4 md:h-4" />
+                          <span className="hidden sm:inline">
+                            {t('triggerAnalysis', language)}
+                          </span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() =>

@@ -111,6 +111,13 @@ export const api = {
     if (!result.success) throw new Error('停止交易员失败')
   },
 
+  async triggerCycle(traderId: string): Promise<void> {
+    const result = await httpClient.post(
+      `${API_BASE}/traders/${traderId}/trigger-cycle`
+    )
+    if (!result.success) throw new Error('触发分析失败')
+  },
+
   async toggleCompetition(
     traderId: string,
     showInCompetition: boolean

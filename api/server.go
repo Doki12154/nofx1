@@ -153,6 +153,7 @@ func (s *Server) setupRoutes() {
 			protected.DELETE("/traders/:id", s.handleDeleteTrader)
 			protected.POST("/traders/:id/start", s.handleStartTrader)
 			protected.POST("/traders/:id/stop", s.handleStopTrader)
+			protected.POST("/traders/:id/trigger-cycle", s.handleTriggerCycle)
 			protected.PUT("/traders/:id/prompt", s.handleUpdateTraderPrompt)
 			protected.POST("/traders/:id/sync-balance", s.handleSyncBalance)
 			protected.POST("/traders/:id/close-position", s.handleClosePosition)
@@ -1035,6 +1036,44 @@ func (s *Server) handleStopTrader(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Trader stopped"})
 }
 
+// handleTriggerCycle Manually trigger a trading cycle (immediate AI analysis)
+func (s *Server) handleTriggerCycle(c *gin.Context) {
+	userID := c.GetString("user_id")
+	traderID := c.Param("id")
+
+	// Verify trader belongs to current user
+	_, err := s.store.Trader().GetFullConfig(userID, traderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Trader does not exist or no access permission"})
+		return
+	}
+
+	trader, err := s.traderManager.GetTrader(traderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Trader does not exist"})
+		return
+	}
+
+	// Check if trader is running
+	status := trader.GetStatus()
+	if isRunning, ok := status["is_running"].(bool); !ok || !isRunning {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trader must be running to trigger a cycle"})
+		return
+	}
+
+	// Trigger cycle in background
+	go func() {
+		logger.Infof("🔄 [%s] Manual cycle triggered by user", trader.GetName())
+		if err := trader.TriggerCycle(); err != nil {
+			logger.Infof("❌ [%s] Manual cycle failed: %v", trader.GetName(), err)
+		} else {
+			logger.Infof("✅ [%s] Manual cycle completed", trader.GetName())
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"message": "Trading cycle triggered, AI is analyzing market..."})
+}
+
 // handleUpdateTraderPrompt Update trader custom prompt
 func (s *Server) handleUpdateTraderPrompt(c *gin.Context) {
 	traderID := c.Param("id")
@@ -1259,7 +1298,8 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Parameter error: symbol and side are required"})
+		logger.Errorf("❌ Close position parameter binding failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Parameter error: %v", err)})
 		return
 	}
 
@@ -1316,6 +1356,16 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 			string(exchangeCfg.APIKey),
 			string(exchangeCfg.SecretKey),
 			string(exchangeCfg.Passphrase),
+		)
+	case "gate":
+		tempTrader = trader.NewGateTrader(
+			string(exchangeCfg.APIKey),
+			string(exchangeCfg.SecretKey),
+		)
+	case "htx":
+		tempTrader = trader.NewHTXTrader(
+			string(exchangeCfg.APIKey),
+			string(exchangeCfg.SecretKey),
 		)
 	case "lighter":
 		if exchangeCfg.LighterWalletAddr != "" && string(exchangeCfg.LighterAPIKeyPrivateKey) != "" {
@@ -3296,6 +3346,7 @@ func (s *Server) Start() error {
 	logger.Infof("  • DELETE /api/traders/:id    - Delete AI trader")
 	logger.Infof("  • POST /api/traders/:id/start - Start AI trader")
 	logger.Infof("  • POST /api/traders/:id/stop  - Stop AI trader")
+	logger.Infof("  • POST /api/traders/:id/trigger-cycle - Manually trigger AI analysis (useful after depositing funds)")
 	logger.Infof("  • GET  /api/models           - Get AI model config")
 	logger.Infof("  • PUT  /api/models           - Update AI model config")
 	logger.Infof("  • GET  /api/exchanges        - Get exchange config")
