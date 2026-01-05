@@ -1074,6 +1074,14 @@ func IsXyzDexAsset(symbol string) bool {
 func Normalize(symbol string) string {
 	symbol = strings.ToUpper(symbol)
 
+	// Remove underscores and hyphens from symbol (e.g., BTC_USDT -> BTCUSDT, BTC-USDT -> BTCUSDT)
+	// This is needed because different exchanges use different formats:
+	// - Binance/CoinAnk: BTCUSDT
+	// - Gate.io: BTC_USDT
+	// - HTX: BTC-USDT
+	symbol = strings.ReplaceAll(symbol, "_", "")
+	symbol = strings.ReplaceAll(symbol, "-", "")
+
 	// Check if this is an xyz dex asset
 	if IsXyzDexAsset(symbol) {
 		// Remove any xyz: prefix (case-insensitive) and USDT suffix, then add xyz: prefix
@@ -1082,7 +1090,7 @@ func Normalize(symbol string) string {
 		if strings.HasPrefix(strings.ToLower(base), "xyz:") {
 			base = base[4:] // Remove first 4 characters ("xyz:")
 		}
-		for _, suffix := range []string{"USDT", "USD", "-USDC"} {
+		for _, suffix := range []string{"USDT", "USD", "USDC"} {
 			if strings.HasSuffix(base, suffix) {
 				base = strings.TrimSuffix(base, suffix)
 				break
