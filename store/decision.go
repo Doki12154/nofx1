@@ -311,3 +311,37 @@ func (s *DecisionStore) GetLastCycleNumber(traderID string) (int, error) {
 	}
 	return *cycleNumber, nil
 }
+
+// GetLatestRecordsBySymbol gets the latest N decision records for specified trader and symbol
+// Returns records sorted by time (old to new)
+func (s *DecisionStore) GetLatestRecordsBySymbol(traderID, symbol string, n int) ([]*DecisionRecord, error) {
+	var dbRecords []*DecisionRecordDB
+
+	// Query records that contain decisions for this symbol
+	err := s.db.Where("trader_id = ? AND decisions LIKE ?", traderID, "%\""+symbol+"\"%").
+		Order("timestamp DESC").
+		Limit(n).
+		Find(&dbRecords).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query decision records by symbol: %w", err)
+	}
+
+	records := make([]*DecisionRecord, 0, len(dbRecords))
+	for _, db := range dbRecords {
+		rec := db.toRecord()
+		// Filter to only include decisions for this symbol
+		for _, decision := range rec.Decisions {
+			if decision.Symbol == symbol {
+				records = append(records, rec)
+				break
+			}
+		}
+	}
+
+	// Reverse array to sort time from old to new
+	for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
+		records[i], records[j] = records[j], records[i]
+	}
+
+	return records, nil
+}

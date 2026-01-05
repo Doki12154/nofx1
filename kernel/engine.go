@@ -125,6 +125,27 @@ type Context struct {
 	BTCETHLeverage     int                                `json:"-"`
 	AltcoinLeverage    int                                `json:"-"`
 	Timeframes         []string                           `json:"-"`
+	DecisionStore      DecisionStoreInterface             `json:"-"` // Decision history store for conversation memory
+	TraderID           string                             `json:"-"` // Trader ID for history retrieval
+}
+
+// DecisionStoreInterface interface for retrieving decision history
+type DecisionStoreInterface interface {
+	GetLatestRecordsBySymbol(traderID, symbol string, n int) ([]*DecisionRecord, error)
+}
+
+// DecisionRecord represents a historical decision record
+type DecisionRecord struct {
+	Timestamp   time.Time
+	InputPrompt string
+	Decisions   []DecisionAction
+}
+
+// DecisionAction represents a decision action
+type DecisionAction struct {
+	Symbol    string
+	Action    string
+	Reasoning string
 }
 
 // Decision AI trading decision
@@ -285,9 +306,57 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	// 3. Build User Prompt using strategy engine
 	userPrompt := engine.BuildUserPrompt(ctx)
 
-	// 4. Call AI API
+	// 4. Build request with conversation history using RequestBuilder
 	aiCallStart := time.Now()
-	aiResponse, err := mcpClient.CallWithMessages(systemPrompt, userPrompt)
+	reqBuilder := mcp.NewRequestBuilder().
+		WithSystemPrompt(systemPrompt).
+		WithUserPrompt(userPrompt)
+
+	// 5. Add conversation history for each symbol (last 10 rounds)
+	if ctx.DecisionStore != nil && ctx.TraderID != "" {
+		// Collect all symbols from positions and candidate coins
+		symbolSet := make(map[string]bool)
+		for _, pos := range ctx.Positions {
+			symbolSet[pos.Symbol] = true
+		}
+		for _, coin := range ctx.CandidateCoins {
+			symbolSet[coin.Symbol] = true
+		}
+
+		// For each symbol, get its history and add to conversation
+		for symbol := range symbolSet {
+			historyRecords, err := ctx.DecisionStore.GetLatestRecordsBySymbol(ctx.TraderID, symbol, 10)
+			if err == nil && len(historyRecords) > 0 {
+				for _, record := range historyRecords {
+					// Add user's previous context
+					if record.InputPrompt != "" {
+						// Extract only the relevant part for this symbol (abbreviated)
+						summary := fmt.Sprintf("[Historical context for %s at %s]", symbol, record.Timestamp.Format("15:04:05"))
+						reqBuilder.AddUserMessage(summary)
+					}
+					// Add AI's previous decision/reasoning
+					if len(record.Decisions) > 0 {
+						for _, decision := range record.Decisions {
+							if decision.Symbol == symbol {
+								response := fmt.Sprintf("Previous decision for %s: action=%s, reasoning=%s",
+									symbol, decision.Action, decision.Reasoning)
+								reqBuilder.AddAssistantMessage(response)
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 6. Build and send request
+	request, err := reqBuilder.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request: %w", err)
+	}
+
+	aiResponse, err := mcpClient.CallWithRequest(request)
 	aiCallDuration := time.Since(aiCallStart)
 	if err != nil {
 		return nil, fmt.Errorf("AI API call failed: %w", err)

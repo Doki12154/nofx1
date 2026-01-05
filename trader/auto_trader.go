@@ -891,6 +891,12 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 		CandidateCoins: candidateCoins,
 	}
 
+	// Add decision history support (for conversation memory)
+	if at.store != nil {
+		ctx.DecisionStore = kernel.NewDecisionStoreAdapter(at.store.Decision())
+		ctx.TraderID = at.id
+	}
+
 	// 7. Add recent closed trades (if store is available)
 	if at.store != nil {
 		// Get recent 10 closed trades for AI context
