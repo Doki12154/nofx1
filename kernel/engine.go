@@ -106,25 +106,25 @@ type RecentOrder struct {
 
 // Context trading context (complete information passed to AI)
 type Context struct {
-	CurrentTime     string                             `json:"current_time"`
-	RuntimeMinutes  int                                `json:"runtime_minutes"`
-	CallCount       int                                `json:"call_count"`
-	Account         AccountInfo                        `json:"account"`
-	Positions       []PositionInfo                     `json:"positions"`
-	CandidateCoins  []CandidateCoin                    `json:"candidate_coins"`
-	PromptVariant   string                             `json:"prompt_variant,omitempty"`
-	TradingStats    *TradingStats                      `json:"trading_stats,omitempty"`
-	RecentOrders    []RecentOrder                      `json:"recent_orders,omitempty"`
-	MarketDataMap   map[string]*market.Data            `json:"-"`
-	MultiTFMarket   map[string]map[string]*market.Data `json:"-"`
-	OITopDataMap    map[string]*OITopData              `json:"-"`
-	QuantDataMap    map[string]*QuantData              `json:"-"`
-	OIRankingData      *nofxos.OIRankingData      `json:"-"` // Market-wide OI ranking data
-	NetFlowRankingData *nofxos.NetFlowRankingData `json:"-"` // Market-wide fund flow ranking data
-	PriceRankingData   *nofxos.PriceRankingData   `json:"-"` // Market-wide price gainers/losers
-	BTCETHLeverage     int                          `json:"-"`
-	AltcoinLeverage int                                `json:"-"`
-	Timeframes      []string                           `json:"-"`
+	CurrentTime        string                             `json:"current_time"`
+	RuntimeMinutes     int                                `json:"runtime_minutes"`
+	CallCount          int                                `json:"call_count"`
+	Account            AccountInfo                        `json:"account"`
+	Positions          []PositionInfo                     `json:"positions"`
+	CandidateCoins     []CandidateCoin                    `json:"candidate_coins"`
+	PromptVariant      string                             `json:"prompt_variant,omitempty"`
+	TradingStats       *TradingStats                      `json:"trading_stats,omitempty"`
+	RecentOrders       []RecentOrder                      `json:"recent_orders,omitempty"`
+	MarketDataMap      map[string]*market.Data            `json:"-"`
+	MultiTFMarket      map[string]map[string]*market.Data `json:"-"`
+	OITopDataMap       map[string]*OITopData              `json:"-"`
+	QuantDataMap       map[string]*QuantData              `json:"-"`
+	OIRankingData      *nofxos.OIRankingData              `json:"-"` // Market-wide OI ranking data
+	NetFlowRankingData *nofxos.NetFlowRankingData         `json:"-"` // Market-wide fund flow ranking data
+	PriceRankingData   *nofxos.PriceRankingData           `json:"-"` // Market-wide price gainers/losers
+	BTCETHLeverage     int                                `json:"-"`
+	AltcoinLeverage    int                                `json:"-"`
+	Timeframes         []string                           `json:"-"`
 }
 
 // Decision AI trading decision
@@ -914,6 +914,8 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 
 	// Position sizing guidance
 	sb.WriteString("## Position Sizing Guidance\n")
+	sb.WriteString("⚠️ IMPORTANT: `position_size_usd` is the NOTIONAL VALUE (contract value), NOT margin!\n")
+	sb.WriteString("Example: To open 100 USDT position with 5x leverage, set position_size_usd=100 (margin used = 100/5 = 20 USDT)\n\n")
 	sb.WriteString("Calculate `position_size_usd` based on your confidence and the Position Value Limits above:\n")
 	sb.WriteString("- High confidence (≥85): Use 80-100%% of max position value limit\n")
 	sb.WriteString("- Medium confidence (70-84): Use 50-80%% of max position value limit\n")
