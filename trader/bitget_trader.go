@@ -184,7 +184,7 @@ func (t *BitgetTrader) doRequest(method, path string, body interface{}) ([]byte,
 	req.Header.Set("locale", "en-US")
 	// Channel code only for order endpoints
 	if strings.Contains(path, "/order/") {
-		req.Header.Set("X-CHANNEL-API-CODE", "7fygt")
+		req.Header.Set("X-CHANNEL-API-CODE", "fx34h")
 	}
 
 	resp, err := t.httpClient.Do(req)

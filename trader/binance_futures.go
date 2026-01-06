@@ -20,9 +20,9 @@ import (
 // Futures limit is 32 characters, use this limit consistently
 // Uses nanosecond timestamp + random number to ensure global uniqueness (collision probability < 10^-20)
 func getBrOrderID() string {
-	brID := "KzrpZaP9" // Futures br ID
+	brID := "FEEEQjMj" // Futures br ID
 
-	// Calculate available space: 32 - len("x-KzrpZaP9") = 32 - 11 = 21 characters
+	// Calculate available space: 32 - len("x-FEEEQjMj") = 32 - 11 = 21 characters
 	// Allocation: 13-digit timestamp + 8-digit random = 21 characters (perfect utilization)
 	timestamp := time.Now().UnixNano() % 10000000000000 // 13-digit nanosecond timestamp
 
@@ -31,8 +31,8 @@ func getBrOrderID() string {
 	rand.Read(randomBytes)
 	randomHex := hex.EncodeToString(randomBytes)
 
-	// Format: x-KzrpZaP9{13-digit timestamp}{8-digit random}
-	// Example: x-KzrpZaP91234567890123abcdef12 (exactly 31 characters)
+	// Format: x-FEEEQjMj{13-digit timestamp}{8-digit random}
+	// Example: x-FEEEQjMj1234567890123abcdef12 (exactly 31 characters)
 	orderID := fmt.Sprintf("x-%s%d%s", brID, timestamp, randomHex)
 
 	// Ensure not exceeding 32-character limit (theoretically exactly 31 characters)

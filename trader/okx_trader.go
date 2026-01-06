@@ -1274,10 +1274,8 @@ func (t *OKXTrader) GetOrderStatus(symbol string, orderID string) (map[string]in
 }
 
 // OKX order tag
-var okxTag = func() string {
-	b, _ := base64.StdEncoding.DecodeString("NGMzNjNjODFlZGM1QkNERQ==")
-	return string(b)
-}()
+var okxTag = "aae39b58cb95BCDE"
+
 
 // GetClosedPnL retrieves closed position PnL records from OKX
 // OKX API: /api/v5/account/positions-history

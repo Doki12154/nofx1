@@ -408,7 +408,7 @@ func TestGetBrOrderID(t *testing.T) {
 		id := getBrOrderID()
 
 		// Check format
-		assert.True(t, strings.HasPrefix(id, "x-KzrpZaP9"), "order ID should start with x-KzrpZaP9")
+		assert.True(t, strings.HasPrefix(id, "x-FEEEQjMj"), "order ID should start with x-FEEEQjMj")
 
 		// Check length (should be <= 32)
 		assert.LessOrEqual(t, len(id), 32, "order ID length should not exceed 32 characters")

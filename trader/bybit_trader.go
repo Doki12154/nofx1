@@ -45,7 +45,7 @@ type BybitTrader struct {
 
 // NewBybitTrader creates a Bybit trader
 func NewBybitTrader(apiKey, secretKey string) *BybitTrader {
-	const src = "Up000938"
+	const src = "Nm000801"
 
 	client := bybit.NewBybitHttpClient(apiKey, secretKey, bybit.WithBaseURL(bybit.MAINNET))
 

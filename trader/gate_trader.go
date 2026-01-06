@@ -161,6 +161,7 @@ func (t *GateTrader) doRequest(method, path string, query map[string]string, bod
 	req.Header.Set("KEY", t.apiKey)
 	req.Header.Set("Timestamp", strconv.FormatInt(timestamp, 10))
 	req.Header.Set("SIGN", signature)
+	req.Header.Set("X-Gate-Channel-Id", "nora") // Gate.io API Broker channel code for commission rebates
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {

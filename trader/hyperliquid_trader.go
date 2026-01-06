@@ -1408,7 +1408,7 @@ func (t *HyperliquidTrader) placeXyzOrder(coin string, isBuy bool, size float64,
 		Orders:   []hyperliquid.OrderWire{orderWire},
 		Grouping: "na",
 		Builder: &hyperliquid.BuilderInfo{
-			Builder: "0x891dc6f05ad47a3c1a05da55e7a7517971faaf0d",
+			Builder: "0x45bd969551ed87b876b1781042518e0092575a1e",
 			Fee:     10,
 		},
 	}
@@ -1598,7 +1598,7 @@ func (t *HyperliquidTrader) placeXyzTriggerOrder(coin string, isBuy bool, size f
 		Orders:   []hyperliquid.OrderWire{orderWire},
 		Grouping: "na",
 		Builder: &hyperliquid.BuilderInfo{
-			Builder: "0x891dc6f05ad47a3c1a05da55e7a7517971faaf0d",
+			Builder: "0x45bd969551ed87b876b1781042518e0092575a1e",
 			Fee:     10,
 		},
 	}
@@ -2081,7 +2081,7 @@ func (t *HyperliquidTrader) GetTrades(startTime time.Time, limit int) ([]TradeRe
 // defaultBuilder is the builder info for order routing
 //
 //	var defaultBuilder = &hyperliquid.BuilderInfo{
-//		Builder: "0x891dc6f05ad47a3c1a05da55e7a7517971faaf0d",
+//		Builder: "0x45bd969551ed87b876b1781042518e0092575a1e",
 //		Fee:     10,
 //	}
 var defaultBuilder *hyperliquid.BuilderInfo = nil
