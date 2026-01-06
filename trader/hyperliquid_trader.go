@@ -16,7 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sonirico/go-hyperliquid"
-)1
+)
 
 // HyperliquidTrader Hyperliquid trader
 type HyperliquidTrader struct {
